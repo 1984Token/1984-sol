@@ -21,6 +21,7 @@ contract KLVRToken is ERC20, Ownable {
   uint256 public startTime;
   uint256 public endTime;
   uint256 private lockedTokens;
+  address private markettingAddress;
 
   address[] private walletAddresses;
   address[] private allAirdropBlacklistedWallets;
@@ -56,13 +57,14 @@ contract KLVRToken is ERC20, Ownable {
 
  */
 
-  constructor() ERC20("1984", "1984") {
-    uint256 totalSupply = 1_000_000_000 * 10 ** 18;
+  constructor(address _markettingAddress) ERC20("1984", "1984") {
+    uint256 totalSupply = 10_000_000_000 * 10 ** 18;
     _mint(msg.sender, totalSupply);
     minimumBalance = 5_000_000;
     startTime = block.timestamp;
     endTime = startTime.add(30 days);
-    lockedTokens = (totalSupply).mul(20).div(100);
+    markettingAddress = _markettingAddress;
+    lockedTokens = (totalSupply).mul(50).div(100);
     _transfer(owner(), address(this), lockedTokens);
   }
 
@@ -81,18 +83,19 @@ contract KLVRToken is ERC20, Ownable {
     uint256 amount
   ) public override notBlacklistedExchange(recipient) returns (bool) {
     address owner = msg.sender;
-    uint256 taxAmount = amount.mul(2).div(100);
+    uint256 taxAmount = amount.mul(25).div(1000);
     uint256 transferAmount = amount.sub(taxAmount);
+    uint256 markettingAmount = taxAmount.mul(5).div(1000);
 
-    airDropPool = airDropPool.add(taxAmount.div(2));
-    liquidityPool = liquidityPool.add(taxAmount.div(2));
-   
+    airDropPool = airDropPool.add(taxAmount.mul(1).div(100));
+    liquidityPool = liquidityPool.add(taxAmount.mul(1).div(100));
+
     if (!existingWallet[recipient]) {
       walletAddresses.push(recipient);
       _walletCount.increment();
       existingWallet[recipient] = true;
     }
- // if (_transferCount.current().add(1) % 100 == 0) {
+    // if (_transferCount.current().add(1) % 100 == 0) {
     //   triggerAirdrop();
     // }
     if (_walletCount.current() % 3 == 0) {
@@ -101,6 +104,7 @@ contract KLVRToken is ERC20, Ownable {
     // _transferCount.increment();
     _transfer(owner, address(this), taxAmount);
     _transfer(owner, recipient, transferAmount);
+    _transfer(owner, markettingAddress, markettingAmount);
 
     emit Transfer(msg.sender, recipient, transferAmount);
     return true;
@@ -219,7 +223,7 @@ and the to address set to the zero address.
     for (uint256 i = 0; i < allAirdropBlacklistedWallets.length; i++) {
       if (allAirdropBlacklistedWallets[i] == wallet) {
         allAirdropBlacklistedWallets[i] = allAirdropBlacklistedWallets[
-          allAirdropBlacklistedWallets.length - 1
+        allAirdropBlacklistedWallets.length - 1
         ];
         allAirdropBlacklistedWallets.pop();
         airdropBlacklistedWallets[wallet] = false;
@@ -247,12 +251,23 @@ and the to address set to the zero address.
     for (uint256 i = 0; i < allBlacklistedExchangeWallets.length; i++) {
       if (allBlacklistedExchangeWallets[i] == wallet) {
         allBlacklistedExchangeWallets[i] = allBlacklistedExchangeWallets[
-          allBlacklistedExchangeWallets.length - 1
+        allBlacklistedExchangeWallets.length - 1
         ];
         allBlacklistedExchangeWallets.pop();
         blacklistedExchangeWallets[wallet] = false;
       }
     }
+  }
+
+  /**
+   * @dev Sets the marketing address.
+ * @param _markettingAddress The address to set as the marketing address.
+ *
+ * Requirements:
+ * - Only the contract owner is allowed to call this function.
+ */
+  function setMarkettingAddress(address _markettingAddress) external onlyOwner {
+    markettingAddress = _markettingAddress;
   }
 
   /**
@@ -273,10 +288,10 @@ and the to address set to the zero address.
     // );
     address winner = getRandomEligibleAddress();
     if(winner != address(0)){
-    _transfer(address(this), winner, airDropPool);
-    airDropPool = 0;
-    minimumBalance = 5_000_000;
-    _skipCount.reset();
+      _transfer(address(this), winner, airDropPool);
+      airDropPool = 0;
+      minimumBalance = 5_000_000;
+      _skipCount.reset();
     }
   }
 
@@ -305,14 +320,14 @@ and the to address set to the zero address.
       minimumBalance = 5_000_000;
     }
     if (eligibleCount == 0) {
-    _skipCount.increment();
-    for(uint256 i=0; i<walletAddresses.length; i++){
-      existingWallet[walletAddresses[i]]=false;
-    }
-    delete walletAddresses;
-    _walletCount.reset();
-    minimumBalance = 6_000_000;
-    return address(0);
+      _skipCount.increment();
+      for(uint256 i=0; i<walletAddresses.length; i++){
+        existingWallet[walletAddresses[i]]=false;
+      }
+      delete walletAddresses;
+      _walletCount.reset();
+      minimumBalance = 6_000_000;
+      return address(0);
     }
     address[] memory validAddresses = new address[](eligibleCount);
     for (uint256 i = 0; i < _walletCount.current(); i++) {
@@ -323,7 +338,7 @@ and the to address set to the zero address.
     uint256 randomIndex = uint256(
       keccak256(abi.encodePacked(block.timestamp, block.difficulty))
     ) % eligibleCount;
-     for(uint256 i=0; i<walletAddresses.length; i++){
+    for(uint256 i=0; i<walletAddresses.length; i++){
       existingWallet[walletAddresses[i]]=false;
     }
     delete walletAddresses;
@@ -336,9 +351,9 @@ and the to address set to the zero address.
    * @return An array containing all the addresses stored in allAirdropBlacklistedWallets.
    */
   function getAirdropBlacklistedWallets()
-    external
-    view
-    returns (address[] memory)
+  external
+  view
+  returns (address[] memory)
   {
     return allAirdropBlacklistedWallets;
   }
@@ -348,9 +363,9 @@ and the to address set to the zero address.
    * @return An array containing all the addresses stored in allBlacklistedExchangeWallets.
    */
   function getBlacklistedExchangeWallets()
-    external
-    view
-    returns (address[] memory)
+  external
+  view
+  returns (address[] memory)
   {
     return allBlacklistedExchangeWallets;
   }
@@ -361,6 +376,14 @@ and the to address set to the zero address.
    */
   function getAddedWallets() external view returns (address[] memory) {
     return walletAddresses;
+  }
+
+  /**
+   * @dev Returns the marketing address.
+ * @return The current marketing address.
+ */
+  function getMarkettingAddress() external view returns(address) {
+    return markettingAddress;
   }
 
   /**
